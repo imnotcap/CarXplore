@@ -110,7 +110,7 @@ actor MockFriendsService: FriendsService {
         let friend = Friend(
             id: UUID(), name: "Kører \(code)", car: "Ukendt bil",
             exploredKm2: Double.random(in: 5...300), trophies: Int.random(in: 0...6),
-            trophyPoints: Int.random(in: 0...150),
+            trophyPoints: Int.random(in: 0...8_000),
             lastLatitude: 55.2 + Double.random(in: 0...1.2),
             lastLongitude: 9.5 + Double.random(in: 0...2.8),
             lastSeen: Date(), isDriving: Bool.random()

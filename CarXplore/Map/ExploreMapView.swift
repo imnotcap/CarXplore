@@ -6,15 +6,21 @@ import SwiftUI
 final class LandmarkAnnotation: NSObject, MKAnnotation {
     let landmark: Landmark
     let isUnlocked: Bool
+    /// Netop låst op. Vises med "250M RADIUS OPLÅST!".
+    let isRecent: Bool
     var coordinate: CLLocationCoordinate2D { landmark.coordinate }
     var title: String? { isUnlocked ? landmark.name : "???" }
     var subtitle: String? { isUnlocked ? landmark.city : "Kør herhen for at låse op" }
 
-    init(landmark: Landmark, isUnlocked: Bool) {
+    init(landmark: Landmark, isUnlocked: Bool, isRecent: Bool) {
         self.landmark = landmark
         self.isUnlocked = isUnlocked
+        self.isRecent = isRecent
     }
 }
+
+/// Den lysende ring om en oplåst seværdighed (det ryddede område).
+final class UnlockedAreaCircle: MKCircle {}
 
 final class FriendAnnotation: NSObject, MKAnnotation {
     let friend: Friend
@@ -38,7 +44,7 @@ struct MapCommand: Equatable {
         case zoomIn
         case zoomOut
         case resetHeading
-        case focus(latitude: Double, longitude: Double)
+        case focus(latitude: Double, longitude: Double, span: Double = 0.04)
     }
 
     let id = UUID()
@@ -148,6 +154,83 @@ final class FriendAnnotationView: MKAnnotationView {
     }
 }
 
+/// Seværdighed: guldtrofæ når den er låst op, grå lås ellers.
+final class LandmarkAnnotationView: MKAnnotationView {
+    static let reuseID = "landmark"
+
+    private let badge = UIView()
+    private let icon = UIImageView()
+    private let nameLabel = UILabel()
+
+    override init(annotation: (any MKAnnotation)?, reuseIdentifier: String?) {
+        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
+        frame = CGRect(x: 0, y: 0, width: 170, height: 84)
+        backgroundColor = .clear
+        canShowCallout = true
+
+        badge.layer.borderWidth = 2
+        badge.layer.shadowOffset = .zero
+        addSubview(badge)
+        icon.contentMode = .scaleAspectFit
+        icon.tintColor = .white
+        badge.addSubview(icon)
+
+        nameLabel.frame = CGRect(x: 0, y: 56, width: 170, height: 22)
+        nameLabel.textAlignment = .center
+        nameLabel.adjustsFontSizeToFitWidth = true
+        nameLabel.minimumScaleFactor = 0.7
+        nameLabel.layer.shadowColor = UIColor.black.cgColor
+        nameLabel.layer.shadowRadius = 3
+        nameLabel.layer.shadowOpacity = 0.9
+        nameLabel.layer.shadowOffset = .zero
+        addSubview(nameLabel)
+
+        // Badgets centrum (y = 25) ligger præcis på koordinaten.
+        centerOffset = CGPoint(x: 0, y: 17)
+        displayPriority = .required
+        configure()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) bruges ikke") }
+
+    override var annotation: (any MKAnnotation)? {
+        didSet { configure() }
+    }
+
+    private func configure() {
+        guard let a = annotation as? LandmarkAnnotation else { return }
+        if a.isUnlocked {
+            badge.frame = CGRect(x: 60, y: 0, width: 50, height: 50)
+            badge.backgroundColor = UIColor(Theme.gold)
+            badge.layer.borderColor = UIColor.white.withAlphaComponent(0.85).cgColor
+            badge.layer.shadowColor = UIColor(Theme.gold).cgColor
+            badge.layer.shadowRadius = 14
+            badge.layer.shadowOpacity = 0.95
+            icon.image = UIImage(systemName: "trophy.fill")
+            icon.frame = CGRect(x: 12, y: 12, width: 26, height: 26)
+            nameLabel.isHidden = false
+            if a.isRecent {
+                nameLabel.text = "\(Int(a.landmark.unlockRadius))M RADIUS OPLÅST!"
+                nameLabel.font = .systemFont(ofSize: 14, weight: .heavy)
+                nameLabel.textColor = UIColor(Theme.cyan)
+            } else {
+                nameLabel.text = a.landmark.name
+                nameLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+                nameLabel.textColor = .white
+            }
+        } else {
+            badge.frame = CGRect(x: 68, y: 8, width: 34, height: 34)
+            badge.backgroundColor = UIColor(white: 0.32, alpha: 1)
+            badge.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
+            badge.layer.shadowOpacity = 0
+            icon.image = UIImage(systemName: "lock.fill")
+            icon.frame = CGRect(x: 9, y: 9, width: 16, height: 16)
+            nameLabel.isHidden = true
+        }
+        badge.layer.cornerRadius = badge.frame.width / 2
+    }
+}
+
 // MARK: - Kortet
 
 /// MKMapView med sky-tåge, neonrute, seværdigheder og venner.
@@ -158,6 +241,7 @@ struct ExploreMapView: UIViewRepresentable {
     let landmarks: [Landmark]
     let unlocked: Set<String>
     let friends: [Friend]
+    let recentUnlockID: String?
     let tripPath: [CLLocationCoordinate2D]
     let command: MapCommand?
     @Binding var followUser: Bool
@@ -174,10 +258,9 @@ struct ExploreMapView: UIViewRepresentable {
         map.preferredConfiguration = configuration
         map.showsUserLocation = true
         map.showsCompass = false
-        map.register(MKMarkerAnnotationView.self,
-                     forAnnotationViewWithReuseIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier)
         map.register(CarAnnotationView.self, forAnnotationViewWithReuseIdentifier: CarAnnotationView.reuseID)
         map.register(FriendAnnotationView.self, forAnnotationViewWithReuseIdentifier: FriendAnnotationView.reuseID)
+        map.register(LandmarkAnnotationView.self, forAnnotationViewWithReuseIdentifier: LandmarkAnnotationView.reuseID)
         // Start over Danmark, indtil vi kender brugerens position.
         map.setRegion(MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 55.9, longitude: 10.9),
@@ -202,7 +285,8 @@ struct ExploreMapView: UIViewRepresentable {
         }
 
         coordinator.syncRoute(on: map, path: tripPath)
-        coordinator.syncAnnotations(on: map, landmarks: landmarks, unlocked: unlocked, friends: friends)
+        coordinator.syncAnnotations(on: map, landmarks: landmarks, unlocked: unlocked,
+                                    recentUnlockID: recentUnlockID, friends: friends)
 
         if let command, command.id != coordinator.lastCommandID {
             coordinator.lastCommandID = command.id
@@ -224,6 +308,7 @@ struct ExploreMapView: UIViewRepresentable {
         private var annotationSignature: Int?
         private var routeCount = -1
         private var routeOverlays: [RoutePolyline] = []
+        private var areaOverlays: [UnlockedAreaCircle] = []
         private var lastReportedHeading = 0.0
 
         func perform(_ command: MapCommand, on map: MKMapView) {
@@ -238,11 +323,11 @@ struct ExploreMapView: UIViewRepresentable {
             case .resetHeading:
                 camera.heading = 0
                 map.setCamera(camera, animated: true)
-            case let .focus(latitude, longitude):
+            case let .focus(latitude, longitude, span):
                 map.setUserTrackingMode(.none, animated: false)
                 map.setRegion(MKCoordinateRegion(
                     center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                    span: MKCoordinateSpan(latitudeDelta: 0.04, longitudeDelta: 0.04)), animated: true)
+                    span: MKCoordinateSpan(latitudeDelta: span, longitudeDelta: span)), animated: true)
             }
         }
 
@@ -260,17 +345,28 @@ struct ExploreMapView: UIViewRepresentable {
             map.addOverlays(routeOverlays, level: .aboveLabels)
         }
 
-        func syncAnnotations(on map: MKMapView, landmarks: [Landmark], unlocked: Set<String>, friends: [Friend]) {
+        func syncAnnotations(on map: MKMapView, landmarks: [Landmark], unlocked: Set<String>,
+                             recentUnlockID: String?, friends: [Friend]) {
             var hasher = Hasher()
             hasher.combine(landmarks.map(\.id))
             hasher.combine(unlocked)
+            hasher.combine(recentUnlockID)
             hasher.combine(friends)
             let signature = hasher.finalize()
             guard signature != annotationSignature else { return }
             annotationSignature = signature
 
+            map.removeOverlays(areaOverlays)
+            areaOverlays = landmarks.filter { unlocked.contains($0.id) }.map {
+                UnlockedAreaCircle(center: $0.coordinate, radius: $0.unlockRadius)
+            }
+            map.addOverlays(areaOverlays, level: .aboveLabels)
+
             map.removeAnnotations(map.annotations.filter { !($0 is MKUserLocation) })
-            map.addAnnotations(landmarks.map { LandmarkAnnotation(landmark: $0, isUnlocked: unlocked.contains($0.id)) })
+            map.addAnnotations(landmarks.map {
+                LandmarkAnnotation(landmark: $0, isUnlocked: unlocked.contains($0.id),
+                                   isRecent: $0.id == recentUnlockID)
+            })
             map.addAnnotations(friends.compactMap { friend in
                 friend.coordinate.map { FriendAnnotation(friend: friend, coordinate: $0) }
             })
@@ -283,6 +379,13 @@ struct ExploreMapView: UIViewRepresentable {
                 let renderer = FogRenderer(overlay: overlay)
                 renderer.update(cells: cells)
                 fogRenderer = renderer
+                return renderer
+            }
+            if let circle = overlay as? UnlockedAreaCircle {
+                let renderer = MKCircleRenderer(circle: circle)
+                renderer.fillColor = UIColor(Theme.cyan).withAlphaComponent(0.14)
+                renderer.strokeColor = UIColor(Theme.cyan).withAlphaComponent(0.9)
+                renderer.lineWidth = 3
                 return renderer
             }
             if let route = overlay as? RoutePolyline {
@@ -319,15 +422,8 @@ struct ExploreMapView: UIViewRepresentable {
                 return mapView.dequeueReusableAnnotationView(withIdentifier: CarAnnotationView.reuseID, for: annotation)
             case is FriendAnnotation:
                 return mapView.dequeueReusableAnnotationView(withIdentifier: FriendAnnotationView.reuseID, for: annotation)
-            case let a as LandmarkAnnotation:
-                let view = mapView.dequeueReusableAnnotationView(
-                    withIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier, for: annotation)
-                guard let marker = view as? MKMarkerAnnotationView else { return view }
-                marker.canShowCallout = true
-                marker.glyphImage = UIImage(systemName: a.isUnlocked ? "trophy.fill" : "lock.fill")
-                marker.markerTintColor = a.isUnlocked ? UIColor(a.landmark.rarity.color) : UIColor(white: 0.35, alpha: 1)
-                marker.displayPriority = .required
-                return marker
+            case is LandmarkAnnotation:
+                return mapView.dequeueReusableAnnotationView(withIdentifier: LandmarkAnnotationView.reuseID, for: annotation)
             default:
                 return nil
             }

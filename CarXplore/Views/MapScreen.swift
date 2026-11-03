@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 
 struct MapScreen: View {
@@ -10,10 +11,36 @@ struct MapScreen: View {
     @State private var search = ""
     @FocusState private var searchFocused: Bool
 
-    private var searchResults: [Friend] {
+    /// Et søgeresultat: en ven eller en seværdighed.
+    private struct SearchResult: Identifiable {
+        let id: String
+        let title: String
+        let subtitle: String
+        let initials: String?
+        let symbol: String
+        let ring: Color
+        let coordinate: CLLocationCoordinate2D?
+    }
+
+    private var searchResults: [SearchResult] {
         let query = search.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return [] }
-        return Array(friends.friends.filter { $0.name.localizedCaseInsensitiveContains(query) }.prefix(4))
+        let friendHits = friends.friends.filter { $0.name.localizedCaseInsensitiveContains(query) }.map { f in
+            SearchResult(id: f.id.uuidString, title: f.name,
+                         subtitle: f.coordinate == nil ? "Position skjult" : f.isDriving ? "Kører nu" : "I skyen",
+                         initials: f.initials, symbol: "location.fill",
+                         ring: f.isDriving ? Theme.mint : .white.opacity(0.5), coordinate: f.coordinate)
+        }
+        let landmarkHits = game.landmarks.filter {
+            $0.name.localizedCaseInsensitiveContains(query) || $0.city.localizedCaseInsensitiveContains(query)
+        }.map { l in
+            let isUnlocked = game.unlocked[l.id] != nil
+            return SearchResult(id: l.id, title: l.name,
+                                subtitle: "\(l.city) · \(isUnlocked ? "Låst op" : "+\(l.rarity.points.formatted()) XP")",
+                                initials: nil, symbol: isUnlocked ? "trophy.fill" : "lock.fill",
+                                ring: isUnlocked ? Theme.gold : .white.opacity(0.4), coordinate: l.coordinate)
+        }
+        return Array((friendHits + landmarkHits).prefix(5))
     }
 
     private var activeCaption: String {
@@ -29,6 +56,7 @@ struct MapScreen: View {
                 landmarks: game.landmarks,
                 unlocked: Set(game.unlocked.keys),
                 friends: friends.friends,
+                recentUnlockID: game.recentUnlock?.id,
                 tripPath: game.tripPath,
                 command: command,
                 followUser: $followUser,
@@ -68,11 +96,6 @@ struct MapScreen: View {
                     results
                 }
 
-                if let landmark = game.recentUnlock {
-                    UnlockBanner(landmark: landmark)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
                 Spacer()
 
                 HStack {
@@ -80,21 +103,31 @@ struct MapScreen: View {
                     mapControls
                 }
 
-                TripCard(
-                    percent: game.localAreaPercent,
-                    km: game.totalKm,
-                    isTracking: location.isTracking,
-                    toggle: toggleTrip
-                )
+                if let landmark = game.recentUnlock {
+                    TrophyUnlockedCard(landmark: landmark) {
+                        game.recentUnlock = nil
+                        followUser = true
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    TripCard(
+                        percent: game.localAreaPercent,
+                        km: game.totalKm,
+                        isTracking: location.isTracking,
+                        toggle: toggleTrip
+                    )
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
         .animation(.spring(duration: 0.4), value: game.recentUnlock)
-        .task(id: game.recentUnlock?.id) {
-            guard game.recentUnlock != nil else { return }
-            try? await Task.sleep(for: .seconds(5))
-            game.recentUnlock = nil
+        .onChange(of: game.recentUnlock?.id) {
+            // Flyv hen til seværdigheden, så man ser den ryddede cirkel.
+            if let landmark = game.recentUnlock {
+                command = MapCommand(kind: .focus(latitude: landmark.latitude, longitude: landmark.longitude,
+                                                  span: landmark.unlockRadius / 25_000))
+            }
         }
         .onAppear {
             if location.authorization == .notDetermined { location.requestWhenInUse() }
@@ -132,7 +165,7 @@ struct MapScreen: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Theme.secondaryText)
-            TextField("", text: $search, prompt: Text("Søg efter venner…").foregroundStyle(Theme.secondaryText))
+            TextField("", text: $search, prompt: Text("Søg på kortet…").foregroundStyle(Theme.secondaryText))
                 .focused($searchFocused)
                 .foregroundStyle(.white)
                 .submitLabel(.search)
@@ -153,28 +186,35 @@ struct MapScreen: View {
 
     private var results: some View {
         VStack(spacing: 0) {
-            ForEach(searchResults) { friend in
+            ForEach(searchResults) { result in
                 Button {
-                    if let c = friend.coordinate {
+                    if let c = result.coordinate {
                         command = MapCommand(kind: .focus(latitude: c.latitude, longitude: c.longitude))
                     }
                     search = ""
                     searchFocused = false
                 } label: {
                     HStack(spacing: 12) {
-                        AvatarView(initials: friend.initials, size: 34,
-                                   ring: friend.isDriving ? Theme.mint : .white.opacity(0.5))
+                        if let initials = result.initials {
+                            AvatarView(initials: initials, size: 34, ring: result.ring)
+                        } else {
+                            Image(systemName: result.symbol)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(0.1), in: Circle())
+                                .overlay(Circle().strokeBorder(result.ring, lineWidth: 2))
+                        }
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(friend.name).font(.subheadline.weight(.semibold))
-                            Text(friend.coordinate == nil ? "Position skjult"
-                                 : friend.isDriving ? "Kører nu" : "I skyen")
+                            Text(result.title).font(.subheadline.weight(.semibold))
+                            Text(result.subtitle)
                                 .font(.caption)
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         Spacer()
                         Image(systemName: "location.fill")
                             .foregroundStyle(Theme.cyan)
-                            .opacity(friend.coordinate == nil ? 0.3 : 1)
+                            .opacity(result.coordinate == nil ? 0.3 : 1)
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
@@ -182,7 +222,7 @@ struct MapScreen: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .disabled(friend.coordinate == nil)
+                .disabled(result.coordinate == nil)
             }
         }
         .glassCard(cornerRadius: 14)
@@ -284,27 +324,48 @@ private struct TripCard: View {
     }
 }
 
-private struct UnlockBanner: View {
+/// "TROFÆ LÅST OP!": vises når en seværdighed låses op, indtil man trykker Fortsæt.
+private struct TrophyUnlockedCard: View {
     let landmark: Landmark
+    let onContinue: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "trophy.fill")
-                .font(.title2)
-                .foregroundStyle(.white)
-                .frame(width: 46, height: 46)
-                .background(landmark.rarity.color.gradient, in: Circle())
-                .shadow(color: landmark.rarity.color.opacity(0.7), radius: 10)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("NYT TROFÆ!").font(.caption.weight(.heavy)).foregroundStyle(Theme.cyan)
-                Text(landmark.name).font(.headline).foregroundStyle(.white)
-                Text("\(landmark.rarity.title) · +\(landmark.rarity.points) point")
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondaryText)
+        VStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "trophy.fill")
+                Text("TROFÆ LÅST OP!")
             }
-            Spacer()
+            .font(.system(size: 24, weight: .heavy))
+            .foregroundStyle(Theme.gold)
+            .shadow(color: Theme.gold.opacity(0.5), radius: 8)
+
+            Text(landmark.name.uppercased())
+                .font(.system(size: 18, weight: .heavy))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+
+            Text("Du har låst \(landmark.name) op og ryddet tågen i en \(Int(landmark.unlockRadius))m radius!")
+                .font(.subheadline)
+                .foregroundStyle(Theme.secondaryText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("+\(landmark.rarity.points.formatted()) XP")
+                .font(.system(size: 20, weight: .heavy))
+                .foregroundStyle(Theme.gold)
+
+            Button(action: onContinue) {
+                Text("FORTSÆT")
+                    .font(.system(size: 18, weight: .heavy))
+                    .foregroundStyle(Color(red: 0.03, green: 0.08, blue: 0.12))
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(Theme.actionGradient, in: Capsule())
+                    .shadow(color: Theme.cyan.opacity(0.5), radius: 12)
+            }
+            .buttonStyle(.plain)
         }
-        .padding(12)
-        .glassCard(highlighted: true)
+        .padding(18)
+        .glassCard(cornerRadius: 22, highlighted: true)
+        .padding(.horizontal, 24)
     }
 }

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Niveau ud fra point, fx "Niveau 4 · Opdagelsesrejsende".
+/// Niveau ud fra XP, fx "Niveau 4 · Opdagelsesrejsende".
 struct Level: Equatable {
-    static let thresholds = [0, 50, 150, 400, 800, 1_500, 3_000, 6_000]
+    static let thresholds = [0, 1_000, 3_000, 7_500, 15_000, 30_000, 60_000, 120_000]
     static let titles = [
         "Søndagskører", "Pendler", "Eventyrer", "Opdagelsesrejsende",
         "Vejkriger", "Kortlægger", "Globetrotter", "Legende",
@@ -11,7 +11,7 @@ struct Level: Equatable {
     let number: Int
     let title: String
     let score: Int
-    /// Point der skal til for næste niveau (nil på højeste niveau).
+    /// XP der skal til for næste niveau (nil på højeste niveau).
     let nextAt: Int?
 
     init(score: Int) {

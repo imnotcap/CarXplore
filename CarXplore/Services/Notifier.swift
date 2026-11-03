@@ -9,7 +9,7 @@ enum Notifier {
     static func trophyUnlocked(_ landmark: Landmark) {
         let content = UNMutableNotificationContent()
         content.title = "Nyt trofæ! 🏆"
-        content.body = "Du har låst \(landmark.name) op (+\(landmark.rarity.points) point)"
+        content.body = "Du har låst \(landmark.name) op og ryddet tågen omkring den (+\(landmark.rarity.points) XP)"
         content.sound = .default
         let request = UNNotificationRequest(identifier: "trophy-\(landmark.id)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)

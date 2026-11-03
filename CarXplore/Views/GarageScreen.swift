@@ -68,13 +68,13 @@ struct GarageScreen: View {
                     Text("Niveau \(level.number) · \(level.title)")
                         .font(.subheadline.weight(.semibold))
                     Spacer()
-                    Text("\(game.score.formatted()) point")
+                    Text("\(game.score.formatted()) XP")
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(Theme.secondaryText)
                 }
                 NeonProgressBar(value: level.progress)
                 if let next = level.nextAt {
-                    Text("\((next - game.score).formatted()) point til niveau \(level.number + 1)")
+                    Text("\((next - game.score).formatted()) XP til niveau \(level.number + 1)")
                         .font(.caption)
                         .foregroundStyle(Theme.secondaryText)
                 }

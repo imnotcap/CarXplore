@@ -97,7 +97,7 @@ struct ProgressScreen: View {
                 let isUnlocked = game.unlocked[landmark.id] != nil
                 TrophyCard(
                     title: landmark.name,
-                    detail: isUnlocked ? "\(landmark.city) · +\(landmark.rarity.points)"
+                    detail: isUnlocked ? "\(landmark.city) · +\(landmark.rarity.points.formatted()) XP"
                                        : "\(landmark.rarity.title) · \(distanceText(to: landmark))",
                     symbol: landmark.symbol,
                     isUnlocked: isUnlocked,
@@ -183,7 +183,7 @@ struct TrophyCard: View {
     }
 }
 
-/// Ranglisten: mig og mine venner sorteret efter point.
+/// Ranglisten: mig og mine venner sorteret efter XP.
 struct LeaderboardView: View {
     @EnvironmentObject private var game: GameStore
     @EnvironmentObject private var friends: FriendsStore
@@ -250,7 +250,7 @@ struct LeaderboardView: View {
                 Text(entry.detail).font(.caption).foregroundStyle(Theme.secondaryText)
             }
             Spacer()
-            Text(entry.score.formatted())
+            Text("\(entry.score.formatted()) XP")
                 .font(.headline.monospacedDigit())
             if entry.friend != nil {
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.secondaryText)
@@ -297,7 +297,7 @@ struct FriendDetailView: View {
                     }
                     stat("Udforsket", "\(friend.exploredKm2.formatted(.number.precision(.fractionLength(1)))) km²")
                     stat("Trofæer", "\(friend.trophies)")
-                    stat("Point", friend.score.formatted())
+                    stat("XP", friend.score.formatted())
                 }
                 .glassCard()
             }

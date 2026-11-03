@@ -19,7 +19,7 @@ final class GameStore: ObservableObject {
     @Published private(set) var unlocked: [String: Date] = [:]
     /// Øges hver gang tågen ændrer sig. Kortet bruger den til at vide, hvornår det skal tegne igen.
     @Published private(set) var revision = 0
-    /// Senest oplåste seværdighed. Vises som banner på kortet.
+    /// Senest oplåste seværdighed. Vises som "TROFÆ LÅST OP!" på kortet, indtil man trykker Fortsæt.
     @Published var recentUnlock: Landmark?
 
     @Published private(set) var totalKm: Double = 0
@@ -58,9 +58,9 @@ final class GameStore: ObservableObject {
         landmarks.filter { unlocked[$0.id] != nil }.reduce(0) { $0 + $1.rarity.points }
     }
 
-    /// Point = 10 pr. udforsket km² + trofæpoint.
+    /// XP = 100 pr. udforsket km² + XP fra seværdigheder.
     var score: Int {
-        Int(exploredAreaKm2 * 10) + trophyPoints
+        Int(exploredAreaKm2 * 100) + trophyPoints
     }
 
     var level: Level { Level(score: score) }
@@ -127,7 +127,7 @@ final class GameStore: ObservableObject {
             for cell in Geo.cells(around: point, radius: Self.revealRadius) where cells.insert(cell).inserted {
                 added.append(cell)
             }
-            checkLandmarks(near: point)
+            checkLandmarks(near: point, into: &cells, added: &added)
         }
     }
 
@@ -150,10 +150,19 @@ final class GameStore: ObservableObject {
         return count
     }
 
-    private func checkLandmarks(near coordinate: CLLocationCoordinate2D) {
+    private func checkLandmarks(
+        near coordinate: CLLocationCoordinate2D,
+        into cells: inout Set<CellID>,
+        added: inout [CellID]
+    ) {
         for landmark in landmarks where unlocked[landmark.id] == nil {
             if Geo.distance(landmark.coordinate, coordinate) <= landmark.unlockRadius {
                 unlock(landmark)
+                // En oplåst seværdighed rydder tågen i hele sin radius (fx 250 m).
+                for cell in Geo.cells(around: landmark.coordinate, radius: landmark.unlockRadius)
+                where cells.insert(cell).inserted {
+                    added.append(cell)
+                }
             }
         }
     }

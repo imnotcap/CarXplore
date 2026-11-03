@@ -61,6 +61,17 @@ final class GameStoreTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(store.score, Rarity.common.points)
     }
 
+    func testUnlockingLandmarkClearsFogInItsRadius() {
+        let store = makeStore()
+        // ~220 m nord for Næstved Rådhus: for langt fra bilen til at blive
+        // afsløret af kørslen, men inden for seværdighedens radius på 250 m.
+        let farCell = CellID(CLLocationCoordinate2D(latitude: 55.2299 + 0.002, longitude: 11.7609))
+        store.record([location(55.2300, 11.7612)])
+        XCTAssertNotNil(store.unlocked["naestved-raadhus"])
+        XCTAssertTrue(store.explored.contains(farCell))
+        XCTAssertEqual(store.score, Int(store.exploredAreaKm2 * 100) + Rarity.common.points)
+    }
+
     func testProgressIsPersisted() {
         let store = makeStore()
         store.record([location(55.2300, 11.7612)])
@@ -104,10 +115,10 @@ final class GameStoreTests: XCTestCase {
 
     func testLevels() {
         XCTAssertEqual(Level(score: 0).number, 1)
-        XCTAssertEqual(Level(score: 593).number, 4)
-        XCTAssertEqual(Level(score: 593).title, "Opdagelsesrejsende")
-        XCTAssertEqual(Level(score: 600).progress, 0.5, accuracy: 0.001)
-        XCTAssertNil(Level(score: 99_999).nextAt)
+        XCTAssertEqual(Level(score: 9_830).number, 4)
+        XCTAssertEqual(Level(score: 9_830).title, "Opdagelsesrejsende")
+        XCTAssertEqual(Level(score: 11_250).progress, 0.5, accuracy: 0.001)
+        XCTAssertNil(Level(score: 999_999).nextAt)
     }
 
     func testAchievementsUnlockFromProgress() {

@@ -8,6 +8,7 @@ enum Theme {
     static let blue = Color(red: 0.18, green: 0.48, blue: 1.0)
     static let mint = Color(red: 0.30, green: 1.0, blue: 0.62)
     static let danger = Color(red: 1.0, green: 0.36, blue: 0.40)
+    static let gold = Color(red: 1.0, green: 0.78, blue: 0.28)
     static let secondaryText = Color.white.opacity(0.68)
 
     static let logoGradient = LinearGradient(colors: [blue, cyan], startPoint: .leading, endPoint: .trailing)

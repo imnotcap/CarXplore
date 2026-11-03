@@ -91,7 +91,7 @@ struct ProfileView: View {
             Toggle("Del min position med venner", isOn: $shareLocation)
                 .tint(Theme.mint)
 
-            Text("Venner kan altid se dit navn, din bil og dine point. Din position deles kun under en tur, og kun hvis det er slået til.")
+            Text("Venner kan altid se dit navn, din bil og din XP. Din position deles kun under en tur, og kun hvis det er slået til.")
                 .font(.caption)
                 .foregroundStyle(Theme.secondaryText)
 

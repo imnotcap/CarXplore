@@ -4,12 +4,13 @@ import SwiftUI
 enum Rarity: String, Codable, CaseIterable, Hashable {
     case common, rare, epic, legendary
 
+    /// XP for at låse en seværdighed af denne sjældenhed op.
     var points: Int {
         switch self {
-        case .common: 10
-        case .rare: 25
-        case .epic: 50
-        case .legendary: 100
+        case .common: 500
+        case .rare: 1_000
+        case .epic: 2_500
+        case .legendary: 5_000
         }
     }
 
