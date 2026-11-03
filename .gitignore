@@ -2,6 +2,9 @@
 *.xcodeproj/
 CarXplore/Info.plist
 
+# Hemmelige nøgler (se Config.xcconfig)
+Secrets.xcconfig
+
 # Xcode
 DerivedData/
 build/

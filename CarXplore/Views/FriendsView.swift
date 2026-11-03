@@ -15,7 +15,7 @@ struct FriendsView: View {
     }
 
     private var leaderboard: [Entry] {
-        let me = Entry(id: "me", name: "Dig",
+        let me = Entry(id: "me", name: friends.me.map { "\($0.displayName) (dig)" } ?? "Dig",
                        detail: "\(game.exploredAreaKm2.formatted(.number.precision(.fractionLength(1)))) km² · \(game.unlocked.count) trofæer",
                        score: game.score, friend: nil)
         let others = friends.friends.map { f in
@@ -33,6 +33,11 @@ struct FriendsView: View {
                     ForEach(Array(leaderboard.enumerated()), id: \.element.id) { index, entry in
                         if let friend = entry.friend {
                             NavigationLink(value: friend) { row(rank: index + 1, entry: entry) }
+                                .swipeActions {
+                                    Button("Fjern", role: .destructive) {
+                                        Task { await friends.remove(friend) }
+                                    }
+                                }
                         } else {
                             row(rank: index + 1, entry: entry)
                                 .listRowBackground(Color.accentColor.opacity(0.12))
@@ -64,7 +69,11 @@ struct FriendsView: View {
                 } header: {
                     Text("Tilføj ven")
                 } footer: {
-                    Text("Venner er i øjeblikket testdata. Rigtig deling kræver en backend (se README).")
+                    if friends.isDemo {
+                        Text("Demo-tilstand: vennerne er testdata, fordi appen ikke er forbundet til en server (se README).")
+                    } else {
+                        Text("Del din kode med venner. Når de taster den ind, kan I se hinandens fremskridt.")
+                    }
                 }
             }
             .navigationTitle("Venner")

@@ -1,28 +1,95 @@
+import CoreLocation
 import Foundation
 
 enum FriendsError: LocalizedError {
     case invalidCode
-    case alreadyAdded
+    case ownCode
+    case alreadyFriends
+    case notSignedIn
+    case server(String)
 
     var errorDescription: String? {
         switch self {
-        case .invalidCode: "Koden skal være 6 tegn."
-        case .alreadyAdded: "I er allerede venner."
+        case .invalidCode: "Der findes ingen kører med den kode."
+        case .ownCode: "Det er din egen kode 🙂"
+        case .alreadyFriends: "I er allerede venner."
+        case .notSignedIn: "Kunne ikke logge ind. Tjek din internetforbindelse."
+        case .server(let message): message
         }
     }
 }
 
-/// Grænseflade mod backenden for venner. `MockFriendsService` er en
-/// lokal attrap. En rigtig version kan bygges med CloudKit, Firebase
-/// eller Supabase, så venners position og fremskridt synkroniseres.
+/// Min egen profil, som den ligger på serveren.
+struct MyProfile: Codable, Hashable {
+    var id: UUID
+    var displayName: String
+    var car: String
+    var friendCode: String
+    var shareLocation: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case displayName = "display_name"
+        case car
+        case friendCode = "friend_code"
+        case shareLocation = "share_location"
+    }
+}
+
+/// Det, appen sender til serveren med jævne mellemrum.
+struct PlayerStatus: Sendable {
+    var exploredKm2: Double
+    var trophies: Int
+    var trophyPoints: Int
+    var isDriving: Bool
+    var latitude: Double?
+    var longitude: Double?
+}
+
+/// Grænseflade mod venne-backenden. `SupabaseFriendsService` er den
+/// rigtige. `MockFriendsService` bruges, når der ikke er konfigureret
+/// en server (fx i CI og ved første opstart).
 protocol FriendsService: Sendable {
+    func myProfile() async throws -> MyProfile
+    func updateProfile(displayName: String, car: String, shareLocation: Bool) async throws -> MyProfile
+    func updateStatus(_ status: PlayerStatus) async throws
     func fetchFriends() async throws -> [Friend]
     func addFriend(code: String) async throws -> Friend
+    func removeFriend(id: UUID) async throws
 }
+
+// MARK: - Mock
 
 actor MockFriendsService: FriendsService {
     private var friends = Friend.samples
-    private var addedCodes: Set<String> = []
+    private var me: MyProfile
+
+    init(defaults: UserDefaults = .standard) {
+        let code: String
+        if let saved = defaults.string(forKey: "mockFriendCode") {
+            code = saved
+        } else {
+            code = Self.makeCode()
+            defaults.set(code, forKey: "mockFriendCode")
+        }
+        me = MyProfile(id: UUID(), displayName: "Mig", car: "", friendCode: code, shareLocation: true)
+    }
+
+    static func makeCode() -> String {
+        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        return String((0..<6).map { _ in alphabet.randomElement()! })
+    }
+
+    func myProfile() async throws -> MyProfile { me }
+
+    func updateProfile(displayName: String, car: String, shareLocation: Bool) async throws -> MyProfile {
+        me.displayName = displayName
+        me.car = car
+        me.shareLocation = shareLocation
+        return me
+    }
+
+    func updateStatus(_ status: PlayerStatus) async throws {}
 
     func fetchFriends() async throws -> [Friend] {
         try await Task.sleep(for: .milliseconds(300))
@@ -39,8 +106,7 @@ actor MockFriendsService: FriendsService {
     func addFriend(code: String) async throws -> Friend {
         let code = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard code.count == 6 else { throw FriendsError.invalidCode }
-        guard !addedCodes.contains(code) else { throw FriendsError.alreadyAdded }
-        addedCodes.insert(code)
+        guard code != me.friendCode else { throw FriendsError.ownCode }
         let friend = Friend(
             id: UUID(), name: "Kører \(code)", car: "Ukendt bil",
             exploredKm2: Double.random(in: 5...300), trophies: Int.random(in: 0...6),
@@ -52,32 +118,46 @@ actor MockFriendsService: FriendsService {
         friends.append(friend)
         return friend
     }
+
+    func removeFriend(id: UUID) async throws {
+        friends.removeAll { $0.id == id }
+    }
 }
+
+// MARK: - Store
 
 @MainActor
 final class FriendsStore: ObservableObject {
     @Published private(set) var friends: [Friend] = []
+    @Published private(set) var me: MyProfile?
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
-    /// Min egen vennekode, som jeg kan dele med andre.
-    let myCode: String
+    /// true når der ikke er nogen rigtig server, og vennerne er testdata.
+    let isDemo: Bool
     private let service: FriendsService
 
-    init(service: FriendsService, defaults: UserDefaults = .standard) {
+    init(service: FriendsService, isDemo: Bool) {
         self.service = service
-        if let code = defaults.string(forKey: "friendCode") {
-            myCode = code
-        } else {
-            let code = Self.makeCode()
-            defaults.set(code, forKey: "friendCode")
-            myCode = code
-        }
+        self.isDemo = isDemo
     }
 
-    static func makeCode() -> String {
-        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        return String((0..<6).map { _ in alphabet.randomElement()! })
+    /// Bruger Supabase, hvis appen er konfigureret med nøgler, ellers testdata.
+    static func makeDefault() -> FriendsStore {
+        if let config = SupabaseConfig.fromBundle() {
+            return FriendsStore(service: SupabaseFriendsService(config: config), isDemo: false)
+        }
+        return FriendsStore(service: MockFriendsService(), isDemo: true)
+    }
+
+    var myCode: String { me?.friendCode ?? "······" }
+
+    func loadProfile() async {
+        do {
+            me = try await service.myProfile()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func refresh() async {
@@ -86,19 +166,49 @@ final class FriendsStore: ObservableObject {
         do {
             friends = try await service.fetchFriends()
         } catch {
-            errorMessage = error.localizedDescription
+            // Fejl ved baggrundsopdatering vises ikke. Listen bliver bare stående.
+            print("CarXplore: kunne ikke hente venner: \(error)")
         }
+    }
+
+    /// Sender mit fremskridt og henter derefter venner.
+    func sync(_ status: PlayerStatus) async {
+        if me == nil { await loadProfile() }
+        do {
+            try await service.updateStatus(status)
+        } catch {
+            print("CarXplore: kunne ikke sende status: \(error)")
+        }
+        await refresh()
     }
 
     @discardableResult
     func add(code: String) async -> Bool {
         do {
             let friend = try await service.addFriend(code: code)
+            friends.removeAll { $0.id == friend.id }
             friends.append(friend)
             return true
         } catch {
             errorMessage = error.localizedDescription
             return false
+        }
+    }
+
+    func remove(_ friend: Friend) async {
+        do {
+            try await service.removeFriend(id: friend.id)
+            friends.removeAll { $0.id == friend.id }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func updateProfile(displayName: String, car: String, shareLocation: Bool) async {
+        do {
+            me = try await service.updateProfile(displayName: displayName, car: car, shareLocation: shareLocation)
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

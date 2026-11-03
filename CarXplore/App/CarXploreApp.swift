@@ -4,7 +4,7 @@ import SwiftUI
 struct CarXploreApp: App {
     @StateObject private var game = GameStore()
     @StateObject private var location = LocationService()
-    @StateObject private var friends = FriendsStore(service: MockFriendsService())
+    @StateObject private var friends = FriendsStore.makeDefault()
 
     var body: some Scene {
         WindowGroup {
@@ -41,14 +41,30 @@ struct RootView: View {
             Notifier.requestPermission()
         }
         .task {
-            // Hent venners position jævnligt, mens appen er åben.
+            // Send mit fremskridt og hent venners, jævnligt mens appen er åben.
+            await friends.loadProfile()
             while !Task.isCancelled {
-                await friends.refresh()
-                try? await Task.sleep(for: .seconds(30))
+                await friends.sync(currentStatus)
+                try? await Task.sleep(for: .seconds(location.isTracking ? 15 : 60))
             }
+        }
+        .onChange(of: location.isTracking) {
+            Task { await friends.sync(currentStatus) }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background { game.saveNow() }
         }
+    }
+
+    private var currentStatus: PlayerStatus {
+        let coordinate = location.isTracking ? location.lastLocation?.coordinate : nil
+        return PlayerStatus(
+            exploredKm2: game.exploredAreaKm2,
+            trophies: game.unlocked.count,
+            trophyPoints: game.trophyPoints,
+            isDriving: location.isTracking,
+            latitude: coordinate?.latitude,
+            longitude: coordinate?.longitude
+        )
     }
 }

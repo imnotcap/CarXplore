@@ -1,0 +1,15 @@
+// Supabase-forbindelse til venne-backenden.
+//
+// Læg IKKE dine nøgler her. Opret i stedet filen Secrets.xcconfig ved siden af
+// denne (den ignoreres af git) med:
+//
+//   SUPABASE_URL = https:/$()/DIT-PROJEKT.supabase.co
+//   SUPABASE_ANON_KEY = din-anon-public-key
+//
+// ("/$()/" er nødvendigt, fordi // ellers læses som en kommentar i xcconfig.)
+// Er værdierne tomme, kører appen med testvenner.
+
+SUPABASE_URL =
+SUPABASE_ANON_KEY =
+
+#include? "Secrets.xcconfig"
