@@ -122,7 +122,7 @@ final class GameStore: ObservableObject {
         var unlocked: [String: Date]
     }
 
-    static var defaultFileURL: URL {
+    nonisolated static var defaultFileURL: URL {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return dir.appendingPathComponent("progress.json")
     }
