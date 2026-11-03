@@ -1,0 +1,42 @@
+/// Startkatalog af seværdigheder. Koordinaterne er omtrentlige og bør
+/// finjusteres. På sigt bør kataloget hentes fra en server, så nye
+/// steder kan tilføjes uden en app-opdatering.
+enum LandmarkCatalog {
+    static let all: [Landmark] = [
+        Landmark(id: "naestved-raadhus", name: "Næstved Rådhus", city: "Næstved",
+                 latitude: 55.2299, longitude: 11.7609, symbol: "building.columns", rarity: .common),
+        Landmark(id: "rundetaarn", name: "Rundetårn", city: "København",
+                 latitude: 55.68132, longitude: 12.57592, symbol: "building", rarity: .rare),
+        Landmark(id: "den-lille-havfrue", name: "Den Lille Havfrue", city: "København",
+                 latitude: 55.69286, longitude: 12.59927, symbol: "figure.water.fitness", rarity: .rare),
+        Landmark(id: "kronborg", name: "Kronborg Slot", city: "Helsingør",
+                 latitude: 56.03895, longitude: 12.62155, symbol: "crown", rarity: .epic),
+        Landmark(id: "frederiksborg", name: "Frederiksborg Slot", city: "Hillerød",
+                 latitude: 55.93430, longitude: 12.30110, symbol: "crown", rarity: .rare),
+        Landmark(id: "roskilde-domkirke", name: "Roskilde Domkirke", city: "Roskilde",
+                 latitude: 55.64260, longitude: 12.08040, symbol: "building.columns", rarity: .rare),
+        Landmark(id: "stevns-klint", name: "Stevns Klint", city: "Store Heddinge",
+                 latitude: 55.32680, longitude: 12.45420, symbol: "mountain.2", rarity: .rare),
+        Landmark(id: "moens-klint", name: "Møns Klint", city: "Møn",
+                 latitude: 54.96370, longitude: 12.54620, symbol: "mountain.2", rarity: .epic),
+        Landmark(id: "storebaeltsbroen", name: "Storebæltsbroen", city: "Sprogø",
+                 latitude: 55.34170, longitude: 11.03890, symbol: "road.lanes", rarity: .epic,
+                 unlockRadius: 600),
+        Landmark(id: "egeskov", name: "Egeskov Slot", city: "Kværndrup",
+                 latitude: 55.17556, longitude: 10.48972, symbol: "crown", rarity: .rare),
+        Landmark(id: "lillebaeltsbroen", name: "Lillebæltsbroen", city: "Middelfart",
+                 latitude: 55.52020, longitude: 9.74440, symbol: "road.lanes", rarity: .rare,
+                 unlockRadius: 500),
+        Landmark(id: "legoland", name: "Legoland", city: "Billund",
+                 latitude: 55.73560, longitude: 9.12670, symbol: "cube", rarity: .common),
+        Landmark(id: "ribe-domkirke", name: "Ribe Domkirke", city: "Ribe",
+                 latitude: 55.32770, longitude: 8.76080, symbol: "building.columns", rarity: .rare),
+        Landmark(id: "den-gamle-by", name: "Den Gamle By", city: "Aarhus",
+                 latitude: 56.15889, longitude: 10.19222, symbol: "house", rarity: .common),
+        Landmark(id: "raabjerg-mile", name: "Råbjerg Mile", city: "Skagen",
+                 latitude: 57.65120, longitude: 10.40890, symbol: "sun.max", rarity: .epic),
+        Landmark(id: "grenen", name: "Grenen", city: "Skagen",
+                 latitude: 57.74417, longitude: 10.64611, symbol: "water.waves", rarity: .legendary,
+                 unlockRadius: 800),
+    ]
+}

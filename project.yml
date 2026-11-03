@@ -1,0 +1,49 @@
+name: CarXplore
+options:
+  bundleIdPrefix: dk.carxplore
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: da
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  CarXplore:
+    type: application
+    platform: iOS
+    sources: [CarXplore]
+    info:
+      path: CarXplore/Info.plist
+      properties:
+        CFBundleDisplayName: CarXplore
+        CFBundleDevelopmentRegion: da
+        UILaunchScreen: {}
+        UIBackgroundModes: [location]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSLocationWhenInUseUsageDescription: "CarXplore bruger din placering til at fjerne tågen fra kortet, hvor du har kørt, og til at låse seværdigheder op."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Giv adgang 'Altid', så CarXplore kan blive ved med at udforske kortet, mens du kører med skærmen slukket eller bruger en anden app."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dk.carxplore.app
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+  CarXploreTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [CarXploreTests]
+    dependencies:
+      - target: CarXplore
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dk.carxplore.app.tests
+schemes:
+  CarXplore:
+    build:
+      targets:
+        CarXplore: all
+        CarXploreTests: [test]
+    test:
+      targets: [CarXploreTests]

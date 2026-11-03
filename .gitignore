@@ -1,0 +1,13 @@
+# Xcode-projektet genereres af XcodeGen fra project.yml
+*.xcodeproj/
+CarXplore/Info.plist
+
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+.swiftpm/
+
+# macOS
+.DS_Store
