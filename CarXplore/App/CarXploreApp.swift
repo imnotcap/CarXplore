@@ -25,14 +25,20 @@ struct RootView: View {
     var body: some View {
         TabView {
             MapScreen()
-                .tabItem { Label("Kort", systemImage: "map") }
-            TrophiesView()
-                .tabItem { Label("Trofæer", systemImage: "trophy") }
-            FriendsView()
-                .tabItem { Label("Venner", systemImage: "person.2") }
+                .tabItem { Label("Kort", systemImage: "map.fill") }
+                .modifier(DarkTabBar())
+            GarageScreen()
+                .tabItem { Label("Garage", systemImage: "car") }
+                .modifier(DarkTabBar())
+            ProgressScreen()
+                .tabItem { Label("Fremskridt", systemImage: "chart.line.uptrend.xyaxis") }
+                .modifier(DarkTabBar())
             ProfileView()
-                .tabItem { Label("Profil", systemImage: "person.crop.circle") }
+                .tabItem { Label("Profil", systemImage: "person") }
+                .modifier(DarkTabBar())
         }
+        .tint(Theme.cyan)
+        .preferredColorScheme(.dark)
         .onAppear {
             let store = game
             location.onLocations = { [weak store] locations in
@@ -66,5 +72,14 @@ struct RootView: View {
             latitude: coordinate?.latitude,
             longitude: coordinate?.longitude
         )
+    }
+}
+
+/// Mørk, altid synlig fanelinje i bunden.
+private struct DarkTabBar: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .toolbarBackground(Theme.panel.opacity(0.96), for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
     }
 }

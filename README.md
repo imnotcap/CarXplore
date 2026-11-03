@@ -5,7 +5,20 @@ stille og roligt, og du låser verden op. Kør forbi seværdigheder som
 **Næstved Rådhus**, **Kronborg** eller **Grenen** for at få trofæer, og dyst
 mod dine venner om, hvem der har udforsket mest.
 
-## Funktioner (v0.1)
+## Udseende
+
+Mørkt "neon over skyerne"-tema: kortet er mørkt og dækket af skyer, ruten
+lyser neonblå, og kortene ligner frostet glas. Der er fire faner:
+
+- **Kort**: din bil ("Mig"), venner som avatarer, søgning efter venner,
+  niveau, hvor stor en del af dit lokalområde du har låst op, km kørt og
+  START TUR.
+- **Garage**: din bil, niveau og statistik (km, ture, natkørsel …).
+- **Fremskridt**: trofæer (fx Tågebryder, Globetrotter, Natuglen,
+  Kort-sluger), seværdigheder og en rangliste mod dine venner.
+- **Profil**: navn, bil, positionsdeling, vennekode, venner og tilladelser.
+
+## Funktioner
 
 - **Tågekort**: MapKit-kort med tåge-overlay. En stribe på ca. 150 m omkring
   bilen bliver afsløret, mens en tur er i gang. Kortet er delt op i felter på
@@ -22,7 +35,11 @@ mod dine venner om, hvem der har udforsket mest.
   demo-tilstand med testvenner.
 - **Privatliv**: Positionen deles kun under en tur og kun hvis "Del min
   position" er slået til. Slås det fra, slettes den gemte position på serveren.
-- **Point**: 10 point pr. udforsket km² plus trofæpoint.
+- **Point og niveauer**: 10 point pr. udforsket km² plus trofæpoint. Point
+  giver niveauer fra *Søndagskører* til *Legende*.
+- **Trofæer for mål**: fx 10 % / 50 % af lokalområdet (10 km omkring der,
+  hvor du kørte første gang), 1.000 km i alt, 50 km om natten, 25 ture og
+  din første ven.
 - Fremskridt gemmes lokalt på telefonen.
 
 ## Kom i gang (kræver en Mac)
@@ -95,7 +112,8 @@ CarXplore/
   Models/     CellID/Geo (gitter), Landmark + katalog, GameStore, Friend
   Services/   LocationService, FriendsService (+ mock), SupabaseFriendsService, Notifier
   Map/        FogOverlay/FogRenderer (tågen) og ExploreMapView (MKMapView)
-  Views/      Kort, Trofæer, Venner, Profil
+  UI/         Tema: farver, glaskort, logo, knapper
+  Views/      Kort, Garage, Fremskridt, Profil
 CarXploreTests/
 supabase/
   migrations/ Databaseskema, RLS og RPC-funktioner

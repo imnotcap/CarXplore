@@ -78,4 +78,43 @@ final class GameStoreTests: XCTestCase {
         XCTAssertTrue(store.explored.isEmpty)
         XCTAssertTrue(store.unlocked.isEmpty)
     }
+
+    func testTripStatisticsAndLocalArea() {
+        let store = makeStore()
+        store.beginTrip()
+        // Kør ca. 2 km mod nord i små skridt.
+        for i in 0...20 {
+            store.record([location(55.20 + Double(i) * 0.0009, 11.70)])
+        }
+        store.endTrip()
+
+        XCTAssertEqual(store.tripCount, 1)
+        XCTAssertEqual(store.totalKm, 2.0, accuracy: 0.1)
+        XCTAssertEqual(store.tripPath.count, 21)
+        XCTAssertNotNil(store.home)
+        XCTAssertGreaterThan(store.localAreaPercent, 0)
+        XCTAssertLessThan(store.localAreaPercent, 5)
+
+        // Statistikken overlever en genstart.
+        let reloaded = makeStore()
+        XCTAssertEqual(reloaded.tripCount, 1)
+        XCTAssertEqual(reloaded.totalKm, store.totalKm, accuracy: 0.001)
+        XCTAssertEqual(reloaded.localAreaPercent, store.localAreaPercent, accuracy: 0.001)
+    }
+
+    func testLevels() {
+        XCTAssertEqual(Level(score: 0).number, 1)
+        XCTAssertEqual(Level(score: 593).number, 4)
+        XCTAssertEqual(Level(score: 593).title, "Opdagelsesrejsende")
+        XCTAssertEqual(Level(score: 600).progress, 0.5, accuracy: 0.001)
+        XCTAssertNil(Level(score: 99_999).nextAt)
+    }
+
+    func testAchievementsUnlockFromProgress() {
+        let store = makeStore()
+        let before = store.achievements(friendCount: 0)
+        XCTAssertFalse(before.first { $0.id == "friend-finder" }!.isUnlocked)
+        let after = store.achievements(friendCount: 1)
+        XCTAssertTrue(after.first { $0.id == "friend-finder" }!.isUnlocked)
+    }
 }

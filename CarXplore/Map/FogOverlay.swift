@@ -22,7 +22,43 @@ final class FogRenderer: MKOverlayRenderer {
     /// Radius på hvert "hul" i meter. Lidt større end en halv celle, så hullerne flyder sammen.
     private static let holeRadius: CLLocationDistance = 110
 
-    private static let fogColor = UIColor(red: 0.80, green: 0.84, blue: 0.90, alpha: 1).cgColor
+    /// Grundfarven under skyerne.
+    private static let fogColor = UIColor(red: 0.40, green: 0.45, blue: 0.53, alpha: 1).cgColor
+
+    /// En flisbar sky-tekstur (256×256), tegnet af bløde hvide klatter.
+    /// Klatterne tegnes også forskudt ±256 px, så kanterne passer sammen.
+    private static let cloudTexture: CGImage? = {
+        let size = 256
+        guard let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let gradient = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [CGColor(red: 1, green: 1, blue: 1, alpha: 0.55),
+                         CGColor(red: 1, green: 1, blue: 1, alpha: 0.18),
+                         CGColor(red: 1, green: 1, blue: 1, alpha: 0)] as CFArray,
+                locations: [0, 0.6, 1]) else { return nil }
+
+        var seed: UInt64 = 0x5EED_CA7
+        func random() -> CGFloat {
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            return CGFloat(seed >> 33) / CGFloat(UInt64(1) << 31)
+        }
+
+        for _ in 0..<80 {
+            let x = random() * CGFloat(size)
+            let y = random() * CGFloat(size)
+            let radius = 16 + random() * 52
+            for dx: CGFloat in [-256, 0, 256] {
+                for dy: CGFloat in [-256, 0, 256] {
+                    let center = CGPoint(x: x + dx, y: y + dy)
+                    ctx.drawRadialGradient(gradient, startCenter: center, startRadius: 0,
+                                           endCenter: center, endRadius: radius, options: [])
+                }
+            }
+        }
+        return ctx.makeImage()
+    }()
     private static let holeGradient: CGGradient = {
         let colors = [
             CGColor(gray: 0, alpha: 1),
@@ -37,7 +73,7 @@ final class FogRenderer: MKOverlayRenderer {
 
     override init(overlay: any MKOverlay) {
         super.init(overlay: overlay)
-        alpha = 0.92
+        alpha = 0.96
     }
 
     func update(cells: Set<CellID>) {
@@ -54,6 +90,16 @@ final class FogRenderer: MKOverlayRenderer {
     override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
         context.setFillColor(Self.fogColor)
         context.fill(rect(for: mapRect))
+
+        // To lag skyer i forskellig størrelse giver dybde. Størrelsen følger
+        // zoomniveauet, så skyerne ser ens ud på skærmen, og flisningen starter i
+        // verdens origo, så skyerne ligger stille, når man panorerer.
+        if let texture = Self.cloudTexture {
+            for scale: CGFloat in [1.4, 3.1] {
+                let side = 256 / zoomScale * scale
+                context.draw(texture, in: CGRect(x: 0, y: 0, width: side, height: side), byTiling: true)
+            }
+        }
 
         let midLatitude = MKMapPoint(x: mapRect.midX, y: mapRect.midY).coordinate.latitude
         let radiusMapPoints = Self.holeRadius * MKMapPointsPerMeterAtLatitude(midLatitude)
